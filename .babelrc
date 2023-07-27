@@ -1,9 +1,3 @@
 {
-  "presets": [["env", {
-      "targets": {
-        "node": "6.3.0"
-      },
-      "modules": "commonjs",
-      "debug": true
-    }]]
+  "presets": [["@babel/preset-env"]]
 }

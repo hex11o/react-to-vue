@@ -1,8 +1,6 @@
-var generate = require('babel-generator').default
-var babelTraverse = require('babel-traverse').default
-var babylon = require('babylon')
-var babelTypes = require('babel-types')
+var babelTypes = require('@babel/types')
 var getProps = require('./props')
+var getFunctional = require('./functional')
 const {getFunctionBody, transformSourceString, transformComponentName} = require('./utility')
 // autumatically increate index 
 var refIndex = 0
@@ -312,6 +310,12 @@ module.exports = function getClass (path, fileContent, root) {
         } else {
           result.static[node.key.name] = null
         }
+      } else {
+        path.traverse({
+          ArrowFunctionExpression (path) {
+            console.log('variablePath', path.node)
+          }
+        })
       }
     }
   })

@@ -1,4 +1,4 @@
-var babelTraverse = require('babel-traverse').default
+var babelTraverse = require('@babel/traverse').default
 
 module.exports = function (ast) {
   babelTraverse(ast,{

@@ -1,5 +1,4 @@
 const {reportIssue, transformSourceString, getFunctionBody, transformComponentName} = require('./utility')
-const generate = require('babel-generator').default
 
 module.exports = function (path, fileContent, result, funcType = null) {
   let funcCom = {

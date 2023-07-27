@@ -1,7 +1,7 @@
 const chalk = require('chalk')
-const babelTraverse = require('babel-traverse').default
-const babylon = require('babylon')
-const generate = require('babel-generator').default
+const babelTraverse = require('@babel/traverse').default
+const babylon = require('@babel/parser')
+const generate = require('@babel/generator').default
 
 export function reportIssue (msg) {
   msg && console.log(msg)

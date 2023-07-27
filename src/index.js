@@ -1,15 +1,14 @@
 var fs = require('fs')
-var path = require('path')
 var getProps = require('./props')
 var getClass = require('./class')
 var saveComponent = require('./save')
 var generateVueComponent = require('./generate')
 var getFunctional = require('./functional')
-var babelTraverse = require('babel-traverse').default
-var babylon = require('babylon')
+var babelTraverse = require('@babel/traverse').default
+var babelParser = require('@babel/parser')
 var chalk = require('chalk')
 var transformTS = require('./ts')
-var flowRemoveTypes = require('flow-remove-types');
+
 var {reportIssue, removeBadCode, isVariableFunc} = require('./utility')
 
 module.exports = function transform (src, options) {
@@ -18,12 +17,8 @@ module.exports = function transform (src, options) {
   fileContent = fileContent.toString()
   // hard code
   fileContent = removeBadCode(fileContent)
-  // if it is used with Flow type annotations
-  if (options.flow) {
-    fileContent = flowRemoveTypes(fileContent).toString()
-  }
   // parse module
-  let ast = babylon.parse(fileContent, {
+  let ast = babelParser.parse(fileContent, {
     sourceType:'module',
     plugins: ["typescript", "classProperties", "jsx", "trailingFunctionCommas", "asyncFunctions", "exponentiationOperator", "asyncGenerators", "objectRestSpread", "decorators"]
   })
@@ -73,13 +68,14 @@ module.exports = function transform (src, options) {
             process.exit()
           }
         } else if (cPath.isExportDefaultDeclaration()) {
-          result.exportName = node.declaration.name ? node.declaration.name : node.declaration.id.name
+          result.exportName = node.declaration.name ? node.declaration.name : 'index' // 导出的组件名
         } else if (cPath.isVariableDeclaration() && !isVariableFunc(cPath)) {
           // it's just simple variable declaration, e.g. `let a = 1`
           result.declaration.push(fileContent.slice(node.start, node.end))
         }
       }
     },
+    // import 文件
     ImportDeclaration (path) {
       let node = path.node
       // skip react and prop-types modules
