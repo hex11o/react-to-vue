@@ -6,6 +6,7 @@ module.exports = function (path, fileContent, result, funcType = null) {
     functional: true,
     componentName: funcType === 'arrow' ? path.parentPath.node.id.name : path.node.id.name
   }
+
   let extraCode = ''
   let paramsPath = path.get('params.0')
   let originalPropName = ''
@@ -59,10 +60,12 @@ module.exports = function (path, fileContent, result, funcType = null) {
       }
     }
   })
-  
   if (funcCom.componentName !== result.exportName) {
     // get code
     let code = getFunctionBody(path, false)
+    if (funcType === 'arrow') {
+      code = `const ${funcCom.componentName} = ${code}` 
+    }
     //if it's a common function
     result.functional.push(code)
     return

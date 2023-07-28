@@ -156,6 +156,21 @@ function parseMethods (path, fileContent, result) {
   result.methods.push(code)
 }
 
+function parseRenderMethods (path, fileContent, result) {
+  // replace special statement
+  replaceSpecialStatement(path, fileContent)
+  // generate method
+  let code = getFunctionBody(path.node.body);
+  let method = path.parent.key.name
+  let params = path.node.params
+  let paramsArr = []
+  for (let i = 0; i < params.length; i++) {
+    paramsArr.push(fileContent.slice(params[i].start, params[i].end))
+  }
+  code = `${method} (${paramsArr.join(', ')}) {${code}}`
+  result.methods.push(code)
+}
+
 // parse render
 function parseRender (path, fileContent, result) {
   // retrieve special properties
@@ -206,6 +221,16 @@ function parseRender (path, fileContent, result) {
         // result.lifeCycles.destroyed = unmountCode + (result.lifeCycles.destroyed ? result.lifeCycles.destroyed : '')
       } else if (node.name.name === 'className') {
         node.name.name = 'class'
+        // 获取class内部值
+        attrPath.traverse({
+          MemberExpression(expressionPath) {
+            console.log(expressionPath)
+          }
+        })
+        // if (!node.value) {
+        //   console.log(node.value.expression)
+        // }
+        // node.value = babelTypes.stringLiteral(node.value.expression)
       } else if (node.name.name === 'dangerouslySetInnerHTML') {
         // replace dangerouslySetInnerHTML with domPropsInnerHTML
         node.name.name = 'domPropsInnerHTML'
@@ -300,6 +325,10 @@ module.exports = function getClass (path, fileContent, root) {
           break;
       }
     },
+    ArrowFunctionExpression(path) {
+      if (!path.parent.key) return
+      parseRenderMethods(path, fileContent, result)
+    },
     ClassProperty (path) {
       let node = path.node
       if (node.key && ['defaultProps', 'propTypes'].includes(node.key.name)) {
@@ -310,12 +339,6 @@ module.exports = function getClass (path, fileContent, root) {
         } else {
           result.static[node.key.name] = null
         }
-      } else {
-        path.traverse({
-          ArrowFunctionExpression (path) {
-            console.log('variablePath', path.node)
-          }
-        })
       }
     }
   })
