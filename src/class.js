@@ -221,16 +221,14 @@ function parseRender (path, fileContent, result) {
         // result.lifeCycles.destroyed = unmountCode + (result.lifeCycles.destroyed ? result.lifeCycles.destroyed : '')
       } else if (node.name.name === 'className') {
         node.name.name = 'class'
+        var classValue = []
         // 获取class内部值
         attrPath.traverse({
           MemberExpression(expressionPath) {
-            console.log(expressionPath)
+            classValue.push(expressionPath.node.property.value)
           }
         })
-        // if (!node.value) {
-        //   console.log(node.value.expression)
-        // }
-        // node.value = babelTypes.stringLiteral(node.value.expression)
+        node.value = babelTypes.stringLiteral(classValue.join(' '))
       } else if (node.name.name === 'dangerouslySetInnerHTML') {
         // replace dangerouslySetInnerHTML with domPropsInnerHTML
         node.name.name = 'domPropsInnerHTML'
