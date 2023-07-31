@@ -17,29 +17,36 @@ function mergeExportComponent (object) {
 }
 
 module.exports = function generateVueComponent (object) {
+
   let content = ''
-  // add imports
-  object.import.forEach((item) => {
-    content += item + '\n'
-  })
+
+  // // add imports
+  // object.import.forEach((item) => {
+  //   content += item + '\n'
+  // })
   
-  // add variable declaration
-  object.declaration.forEach((item) => {
-    content += item + '\n'
-  })
-  content += '\n\n'
+  // // add variable declaration
+  // object.declaration.forEach((item) => {
+  //   content += item + '\n'
+  // })
+  // content += '\n\n'
   
   // merge export component
   let component = mergeExportComponent(object)
   
-  // generate common function
-  object.functional.forEach((func) => {
-    // common function
-    content += func
-  })
+  // // generate common function
+  // object.functional.forEach((func) => {
+  //   // common function
+  //   content += func
+  // })
   
   // generate export component
   if (component && component.render) {
+    // add template
+    if (component.template) {
+      content += '<template>\n' + component.template + '\n</template>\n\n'
+    }
+
     // add class static variables and methods if exists
     if (component.static) {
       for (let name in component.static) {
@@ -96,13 +103,13 @@ module.exports = function generateVueComponent (object) {
       for (let key in data) {
         arr.push(`${key}: ${data[key]}`)
       }
-      let value = `return {${arr.join(',\n')}}`
-      vueProps.push(`data () {${value}}`)
+      let value = arr.join(',\n')
+      vueProps.push(`const state = reactive(${value})`)
     }
     
     // add methods
     if (component.methods && component.methods.length) {
-      vueProps.push(`methods: {${component.methods.join(',')}}`)
+      vueProps.push(component.methods.join(','))
     }
     
     // add life cycles
@@ -115,48 +122,48 @@ module.exports = function generateVueComponent (object) {
     }
     
     // add sub components
-    if (component.components) {
-      let result = []
-      // validate components
-      component.components.forEach(function (com) {
-        let exist = object.import.some(function (value) {
-          return value.includes(com)
-        })
-        if (exist) {
-          result.push(com)
-        }
-      })
-      // if exists necessary components
-      if (result.length) {
-        vueProps.push(`components: {${result.join(',')}}`)
-      }
-    }
+    // if (component.components) {
+    //   let result = []
+    //   // validate components
+    //   component.components.forEach(function (com) {
+    //     let exist = object.import.some(function (value) {
+    //       return value.includes(com)
+    //     })
+    //     if (exist) {
+    //       result.push(com)
+    //     }
+    //   })
+    //   // if exists necessary components
+    //   if (result.length) {
+    //     vueProps.push(`components: {${result.join(',')}}`)
+    //   }
+    // }
     
     // add render
-    if (component.render) {
-      vueProps.push(`${component.render}`)
-    }
+    // if (component.render) {
+    //   vueProps.push(`${component.render}`)
+    // }
     // generate component
     content += vueProps.join(',\n') + '}'
   }
   
   // format content
-  const options = {
-    text: content,
-    eslintConfig: {
-      parser: 'babel-eslint',
-      rules: {
-        semi: ["error", "never"],
-        quotes: ["error", "single"],
-        "no-extra-semi": 2,
-        "max-len": ["error", { "code": 150 }],
-        "object-curly-spacing": ["error", "never"],
-        "space-before-function-paren": ["error", "always"],
-        "no-multiple-empty-lines": ["error", { "max": 0}],
-        "line-comment-position": ["error", { "position": "beside" }]
-      }
-    }
-  };
-  content = format(options);
+  // const options = {
+  //   text: content,
+  //   eslintConfig: {
+  //     parser: 'babel-eslint',
+  //     rules: {
+  //       semi: ["error", "never"],
+  //       quotes: ["error", "single"],
+  //       "no-extra-semi": 2,
+  //       "max-len": ["error", { "code": 150 }],
+  //       "object-curly-spacing": ["error", "never"],
+  //       "space-before-function-paren": ["error", "always"],
+  //       "no-multiple-empty-lines": ["error", { "max": 0}],
+  //       "line-comment-position": ["error", { "position": "beside" }]
+  //     }
+  //   }
+  // };
+  // content = format(options);
   return content
 }

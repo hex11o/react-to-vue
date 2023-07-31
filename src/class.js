@@ -1,6 +1,7 @@
 var babelTypes = require('@babel/types')
 var getProps = require('./props')
 var getFunctional = require('./functional')
+const generate = require('@babel/generator').default
 const {getFunctionBody, transformSourceString, transformComponentName} = require('./utility')
 // autumatically increate index 
 var refIndex = 0
@@ -229,6 +230,23 @@ function parseRender (path, fileContent, result) {
           }
         })
         node.value = babelTypes.stringLiteral(classValue.join(' '))
+      } else if (node.name.name === 'style') {
+        // 获取style内部值
+        var styleValue = []
+        attrPath.traverse({
+          ObjectProperty(expressionPath) {
+            styleValue.push(`${expressionPath.node.key.name}: ${expressionPath.node.value.value}`)
+          }
+        })
+        node.value = babelTypes.stringLiteral(styleValue.join('; '))
+      } else if (node.name.name === 'onClick') {
+        attrPath.traverse({
+          ArrowFunctionExpression(functionPath) {
+            node.value = babelTypes.stringLiteral(generate(functionPath.node.body).code)
+          }
+        })
+        node.name.name = '@click'
+        
       } else if (node.name.name === 'dangerouslySetInnerHTML') {
         // replace dangerouslySetInnerHTML with domPropsInnerHTML
         node.name.name = 'domPropsInnerHTML'
@@ -253,10 +271,22 @@ function parseRender (path, fileContent, result) {
           memPath.replaceWith(babelTypes.thisExpression())
         }
       }
+    },
+    VariableDeclaration(path) {
+      if (path.isVariableDeclaration()) {
+        result.declaration.push(fileContent.slice(path.node.start, path.node.end))
+      }
     }
   })
+
+  path.traverse({
+    ReturnStatement(blockPath) {
+      result.template = generate(blockPath.node.argument).code
+    }
+  })
+
   let code = getFunctionBody(path.node.body);
-  result.render = `render () {${code}}`
+  result.render = `${code}}`
 }
 
 /*
@@ -281,6 +311,8 @@ module.exports = function getClass (path, fileContent, root) {
     methods: [],
     lifeCycles: {},
     components: [],
+    template: null,
+    declaration: [],
     componentName: path.node.id.name
   })
   let result = root.class
