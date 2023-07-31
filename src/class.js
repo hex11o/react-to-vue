@@ -187,76 +187,97 @@ function parseRender (path, fileContent, result) {
           jsxPath.node.closingElement.name.name = name
         }
       }
-    },
-    JSXAttribute (attrPath) {
-      let node = attrPath.node
-      // if value of ref property is callback, we need to change it
-      if (node.name.name === 'ref' && node.value.type !== 'StringLiteral') {
-        let value = node.value
-        let code
-        // automatically increase the value
-        let refValue = 'vueref' + refIndex++
-        let bodys = null
-        // only has one statement
-        if ((bodys = attrPath.get('value.expression.body'), bodys) && bodys.isAssignmentExpression()) {
-          code = fileContent.slice(bodys.node.left.start, bodys.node.left.end)
-          code = `${code} = this.$refs.${refValue}`
-        } else if (bodys.node && (bodys = attrPath.get('value.expression.body.body'), bodys) && bodys.length === 1) { // only has one statement
-          // only has one statement in the blockstatement
-          bodys = bodys[0].get('expression.left')
-          code = fileContent.slice(bodys.node.start, bodys.node.end)
-          code = `${code} = this.$refs.${refValue}`
-        } else {
-          code = fileContent.slice(value.expression.start, value.expression.end)
-          code = `(${code})(this.$refs.${refValue})`
-        }
-        code += ';'
-        
-        let jsxContainer = attrPath.get('value')
-        if (jsxContainer) {
-          jsxContainer.replaceWith(babelTypes.stringLiteral(refValue))
-        }
-        // add the ref callback code into specified lifecycle
-        result.lifeCycles.mounted = code + (result.lifeCycles.mounted ? result.lifeCycles.mounted : '')
-        result.lifeCycles.updated = code + (result.lifeCycles.updated ? result.lifeCycles.updated : '')
-        // result.lifeCycles.destroyed = unmountCode + (result.lifeCycles.destroyed ? result.lifeCycles.destroyed : '')
-      } else if (node.name.name === 'className') {
-        node.name.name = 'class'
-        var classValue = []
-        // 获取class内部值
-        attrPath.traverse({
-          MemberExpression(expressionPath) {
-            classValue.push(expressionPath.node.property.value)
+      jsxPath.traverse({
+        JSXAttribute: function JSXAttribute(attrPath) {
+          var node = attrPath.node;
+
+          if(node.value.type !== 'StringLiteral') {
+            let name = node.name.name;
+            switch (node.value.expression.type) {
+              case 'MemberExpression':
+                if (name === 'className') {
+                  node.name.name = 'class';
+                  var classValue = [];
+                  // 获取class内部值
+                  attrPath.traverse({
+                    MemberExpression (expressionPath) {
+                      classValue.push(expressionPath.node.property.value);
+                    }
+                  });
+                  node.value = babelTypes.stringLiteral(classValue.join(' '));
+                } else {
+                  node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
+                  node.name.name = `:${name}`;
+                }
+                break;
+              case 'ArrowFunctionExpression':
+                node.value = babelTypes.stringLiteral(generate(node.value.expression.body).code);
+                node.name.name = `@${name}`;
+                break;
+              case 'CallExpression':
+                if (name === 'className') {
+                  node.name.name = 'class';
+                  var classValue = [];
+                  // 获取class内部值
+                  attrPath.traverse({
+                    MemberExpression (expressionPath) {
+                      classValue.push(expressionPath.node.property.value);
+                    }
+                  });
+                  node.value = babelTypes.stringLiteral(classValue.join(' '));
+                } else {
+                  node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
+                  node.name.name = `:${name}`;
+                }
+                break;
+              case 'LogicalExpression':
+              case 'TemplateLiteral':
+              case 'Identifier':
+                node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
+                node.name.name = `:${name}`;
+                break;
+              case 'ObjectExpression':
+                const style = node.value.expression.properties.map((property) => {
+                  return `${property.key.name}: ${property.value.value}`
+                }).join(';')
+                node.value = babelTypes.stringLiteral(style);
+                break;
+              default:
+                break;
+            }
           }
-        })
-        node.value = babelTypes.stringLiteral(classValue.join(' '))
-      } else if (node.name.name === 'style') {
-        // 获取style内部值
-        var styleValue = []
-        attrPath.traverse({
-          ObjectProperty(expressionPath) {
-            styleValue.push(`${expressionPath.node.key.name}: ${expressionPath.node.value.value}`)
-          }
-        })
-        node.value = babelTypes.stringLiteral(styleValue.join('; '))
-      } else if (node.name.name === 'onClick') {
-        attrPath.traverse({
-          ArrowFunctionExpression(functionPath) {
-            node.value = babelTypes.stringLiteral(generate(functionPath.node.body).code)
-          }
-        })
-        node.name.name = '@click'
-        
-      } else if (node.name.name === 'dangerouslySetInnerHTML') {
-        // replace dangerouslySetInnerHTML with domPropsInnerHTML
-        node.name.name = 'domPropsInnerHTML'
-        let expression = attrPath.get('value.expression')
-        if (expression.isIdentifier()) {
-          expression.replaceWithSourceString(`${expression.node.name}.__html`)
-        } else {
-          expression.replaceWith(expression.get('properties.0.value'))
+          // if (node.name.name === 'ref' && node.value.type !== 'StringLiteral') {
+          //   var value = node.value;
+          //   var _code;
+          //   // automatically increase the value
+          //   var refValue = 'vueref' + refIndex++;
+          //   var bodys = null;
+          //   // only has one statement
+          //   if ((bodys = attrPath.get('value.expression.body'), bodys) && bodys.isAssignmentExpression()) {
+          //     _code = fileContent.slice(bodys.node.left.start, bodys.node.left.end);
+          //     _code = "".concat(_code, " = this.$refs.").concat(refValue);
+          //   } else if (bodys.node && (bodys = attrPath.get('value.expression.body.body'), bodys) && bodys.length === 1) {
+          //     // only has one statement
+          //     // only has one statement in the blockstatement
+          //     bodys = bodys[0].get('expression.left');
+          //     _code = fileContent.slice(bodys.node.start, bodys.node.end);
+          //     _code = "".concat(_code, " = this.$refs.").concat(refValue);
+          //   } else {
+          //     _code = fileContent.slice(value.expression.start, value.expression.end);
+          //     _code = "(".concat(_code, ")(this.$refs.").concat(refValue, ")");
+          //   }
+          //   _code += ';';
+          //   var jsxContainer = attrPath.get('value');
+          //   if (jsxContainer) {
+          //     jsxContainer.replaceWith(babelTypes.stringLiteral(refValue));
+          //   }
+          //   // add the ref callback code into specified lifecycle
+          //   result.lifeCycles.mounted = _code + (result.lifeCycles.mounted ? result.lifeCycles.mounted : '');
+          //   result.lifeCycles.updated = _code + (result.lifeCycles.updated ? result.lifeCycles.updated : '');
+          //   // result.lifeCycles.destroyed = unmountCode + (result.lifeCycles.destroyed ? result.lifeCycles.destroyed : '')
+          // }
         }
-      }
+      });
     },
     MemberExpression (memPath) {
       // change `this.state` and `this.props` to `this`
@@ -282,6 +303,16 @@ function parseRender (path, fileContent, result) {
   path.traverse({
     ReturnStatement(blockPath) {
       result.template = generate(blockPath.node.argument).code
+
+      blockPath.traverse({
+        JSXExpressionContainer (jsxPath) {
+          // jsxPath.traverse({
+          //   JSXEmptyExpression(jsxEmptyPath) {
+          //     jsxPath.replaceWith(babelTypes.JSXText(generate(jsxEmptyPath.node).code))
+          //   }
+          // })
+        }
+      })
     }
   })
 
