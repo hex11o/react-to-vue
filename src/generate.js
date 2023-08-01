@@ -20,25 +20,8 @@ module.exports = function generateVueComponent (object) {
 
   let content = ''
 
-  // // add imports
-  // object.import.forEach((item) => {
-  //   content += item + '\n'
-  // })
-  
-  // // add variable declaration
-  // object.declaration.forEach((item) => {
-  //   content += item + '\n'
-  // })
-  // content += '\n\n'
-  
   // merge export component
   let component = mergeExportComponent(object)
-  
-  // // generate common function
-  // object.functional.forEach((func) => {
-  //   // common function
-  //   content += func
-  // })
   
   // generate export component
   if (component && component.render) {
@@ -46,32 +29,15 @@ module.exports = function generateVueComponent (object) {
     if (component.template) {
       content += '<template>\n' + component.template + '\n</template>\n\n'
     }
+    console.log(component);
+    // add script start
+    content += `<script name="${component.componentName}" lang="ts">\n`
 
-    // add class static variables and methods if exists
-    if (component.static) {
-      for (let name in component.static) {
-        if (component.static[name]) {
-          content += `let static_${name} = ${component.static[name]}\n`
-        } else {
-          content += `let static_${name}\n`
-        }
-      }
-    }
-    // vueProps is designed to put vue properties
-    let vueProps = []
-    content += '// export component\n'
-    content += 'export default {\n'
-    
-    // add component name
-    if (component.componentName) {
-      vueProps.push(`name: '${transformComponentName(component.componentName)}'`)
-    }
-    
-    // add functional tag if it's a functional component
-    if (component.functional) {
-      vueProps.push(`functional: true`)
-    }
-    
+    // add imports
+    object.import.forEach((item) => {
+      content += item + '\n'
+    })
+
     // add props
     if (object.propTypes && object.propTypes[component.componentName]) {
       let props = object.propTypes[component.componentName]
@@ -94,8 +60,9 @@ module.exports = function generateVueComponent (object) {
         }
         propArr.push(`${item}: {${arr.join(',\n')}}`)
       }
-      vueProps.push(`props: {${propArr.join(',\n')}}`)
+      vueProps.push(`const props = defineProps({${propArr.join(',\n')}})`)
     }
+
     // add data
     if (component.data && Object.keys(component.data).length) {
       let data = component.data
@@ -104,48 +71,48 @@ module.exports = function generateVueComponent (object) {
         arr.push(`${key}: ${data[key]}`)
       }
       let value = arr.join(',\n')
-      vueProps.push(`const state = reactive(${value})`)
+      content += `const state = reactive({${value}})\n\n`
     }
-    
-    // add methods
-    if (component.methods && component.methods.length) {
-      vueProps.push(component.methods.join(','))
-    }
-    
+
     // add life cycles
     if (component.lifeCycles && Object.keys(component.lifeCycles).length) {
-      let lifeCycles = []
       for (let key in component.lifeCycles) {
-        lifeCycles.push(`${key} () {${component.lifeCycles[key]}}`)
+        content += `${key} () {${component.lifeCycles[key]}}\n\n`
       }
-      vueProps.push(`${lifeCycles.join(',')}`)
     }
-    
-    // add sub components
-    // if (component.components) {
-    //   let result = []
-    //   // validate components
-    //   component.components.forEach(function (com) {
-    //     let exist = object.import.some(function (value) {
-    //       return value.includes(com)
-    //     })
-    //     if (exist) {
-    //       result.push(com)
-    //     }
-    //   })
-    //   // if exists necessary components
-    //   if (result.length) {
-    //     vueProps.push(`components: {${result.join(',')}}`)
-    //   }
-    // }
-    
-    // add render
-    // if (component.render) {
-    //   vueProps.push(`${component.render}`)
-    // }
-    // generate component
-    content += vueProps.join(',\n') + '}'
+
+    // add variable declaration
+    object.declaration.forEach((item) => {
+      content += item + '\n'
+    })
+
+    // add class declaration
+    component.declaration.forEach((item) => {
+      content += item + '\n\n'
+    })
+
+    // add class static variables and methods if exists
+    if (component.static) {
+      for (let name in component.static) {
+        if (component.static[name]) {
+          content += `let static_${name} = ${component.static[name]}\n`
+        } else {
+          content += `let static_${name}\n`
+        }
+      }
+    }
+
+    // add methods
+    if (component.methods && component.methods.length) {
+      content += component.methods.join('\n\n')
+    }
+
+    // add script end
+    content += '\n</script>\n\n'
   }
+
+  // add style
+  content += `<style lang="less" scoped>\n@import "./index.less"; \n</style>\n\n`
   
   // format content
   // const options = {

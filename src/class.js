@@ -153,7 +153,7 @@ function parseMethods (path, fileContent, result) {
   for (let i = 0; i < params.length; i++) {
     paramsArr.push(fileContent.slice(params[i].start, params[i].end))
   }
-  code = `${method} (${paramsArr.join(', ')}) {${code}}`
+  code = `function ${method} (${paramsArr.join(', ')}) {${code}}`
   result.methods.push(code)
 }
 
@@ -168,7 +168,7 @@ function parseRenderMethods (path, fileContent, result) {
   for (let i = 0; i < params.length; i++) {
     paramsArr.push(fileContent.slice(params[i].start, params[i].end))
   }
-  code = `${method} (${paramsArr.join(', ')}) {${code}}`
+  code = `function ${method} (${paramsArr.join(', ')}) {${code}}`
   result.methods.push(code)
 }
 
