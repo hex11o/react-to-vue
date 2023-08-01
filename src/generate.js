@@ -31,7 +31,7 @@ module.exports = function generateVueComponent (object) {
     }
     console.log(component);
     // add script start
-    content += `<script name="${component.componentName}" lang="ts">\n`
+    content += `<script setup name="${component.componentName}" lang="ts">\n`
 
     // add imports
     object.import.forEach((item) => {

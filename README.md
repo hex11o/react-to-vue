@@ -2,7 +2,7 @@
 transform a basic react component to vue component
 
 ## Install
-npm install react-to-vue -g
+npm install slb-rtv -g
 
 ## Usage
 
