@@ -335,73 +335,107 @@ function replaceStatic (path, root) {
   })
 }
 
+// get props
+function parseProps (node, fileContent, result) {
+  const props = {}
+  node.id.properties.forEach((item) => {
+    props[item.key.name] = item.value.value
+    if (item.value.type === 'Identifier') {
+      props[item.key.name] = null
+    } else {
+      props[item.key.name] = fileContent.slice(item.value.right.start, item.value.right.end)
+    }
+  })
+  result.props = props
+}
+
+// get state
+function getData (node, fileContent, result) {
+  const key = node.id.elements[0].name
+  const changeKey = node.id.elements[1].name
+  const defaultValue = fileContent.slice(node.init.arguments[0].start, node.init.arguments[0].end)
+  result.data[key] = defaultValue
+  result.stateChange.push(changeKey)
+}
+
 module.exports = function getClass (path, fileContent, root) {
   Object.assign(root.class, {
     static: {},
     data: {},
+    props: {},
     methods: [],
+    stateChange: [],
     lifeCycles: {},
     components: [],
     template: null,
     declaration: [],
-    componentName: path.node.id.name
+    componentName: path.node.declarations[0].id.name
   })
-  let result = root.class
+
+  let result = root.class 
   
   path.traverse({
-    ClassMethod (path) {
-      // replace statics
-      replaceStatic(path, root)
-      // deal with different method
-      switch(path.node.key.name) {
-        case 'constructor':
-          parseConstructor(path, fileContent, result, root);
-          break;
-        case 'componentWillMount':
-          parseLifeCycle(path, 'onBeforeMount', fileContent, result);
-          break;
-        case 'componentDidMount':
-          parseLifeCycle(path, 'onMounted', fileContent, result);
-          break;
-        case 'componentWillUpdate':
-          parseLifeCycle(path, 'onBeforeUpdate', fileContent, result);
-          break;
-        case 'componentDidUpdate':
-          parseLifeCycle(path, 'onUpdated', fileContent, result);
-          break;
-        case 'componentWillUnmount':
-          parseLifeCycle(path, 'onBeforeUnmount', fileContent, result);
-          break;
-        case 'componentDidCatch':
-          parseLifeCycle(path, 'onErrorCaptured', fileContent, result);
-          break;
-        case 'shouldComponentUpdate':
-        case 'componentWillReceiveProps':
-          break;
-        case 'render':
-          parseRender(path, fileContent, result);
-          break;
-        default:
-          parseMethods(path, fileContent, result);
-          break;
+    // ClassMethod (path) {
+    //   // replace statics
+    //   replaceStatic(path, root)
+    //   // deal with different method
+    //   switch(path.node.key.name) {
+    //     case 'constructor':
+    //       parseConstructor(path, fileContent, result, root);
+    //       break;
+    //     case 'componentWillMount':
+    //       parseLifeCycle(path, 'onBeforeMount', fileContent, result);
+    //       break;
+    //     case 'componentDidMount':
+    //       parseLifeCycle(path, 'onMounted', fileContent, result);
+    //       break;
+    //     case 'componentWillUpdate':
+    //       parseLifeCycle(path, 'onBeforeUpdate', fileContent, result);
+    //       break;
+    //     case 'componentDidUpdate':
+    //       parseLifeCycle(path, 'onUpdated', fileContent, result);
+    //       break;
+    //     case 'componentWillUnmount':
+    //       parseLifeCycle(path, 'onBeforeUnmount', fileContent, result);
+    //       break;
+    //     case 'componentDidCatch':
+    //       parseLifeCycle(path, 'onErrorCaptured', fileContent, result);
+    //       break;
+    //     case 'shouldComponentUpdate':
+    //     case 'componentWillReceiveProps':
+    //       break;
+    //     case 'render':
+    //       parseRender(path, fileContent, result);
+    //       break;
+    //     default:
+    //       parseMethods(path, fileContent, result);
+    //       break;
+    //   }
+    // },
+    VariableDeclaration(path) {
+      // 处理props和useState的值调整
+      if (path.node.declarations[0].init.type === 'Identifier' && path.node.declarations[0].init.name === 'props'){
+        parseProps(path.node.declarations[0], fileContent, result)
+      } else if (path.node.declarations[0].init.type === 'CallExpression' && path.node.declarations[0].init.callee.name === 'useState'){
+        getData(path.node.declarations[0], fileContent, result)
       }
     },
-    ArrowFunctionExpression(path) {
-      if (!path.parent.key) return
-      parseRenderMethods(path, fileContent, result)
-    },
-    ClassProperty (path) {
-      let node = path.node
-      if (node.key && ['defaultProps', 'propTypes'].includes(node.key.name)) {
-        getProps(result.componentName, node.key.name, node.value, root)
-      } else if (node.static) {
-        if (node.value) {
-          result.static[node.key.name] = root.source.slice(node.value.start, node.value.end)
-        } else {
-          result.static[node.key.name] = null
-        }
-      }
+    ExpressionStatement (expressPath) {
+      
     }
+
+    // ClassProperty (path) {
+    //   let node = path.node
+    //   if (node.key && ['defaultProps', 'propTypes'].includes(node.key.name)) {
+    //     getProps(result.componentName, node.key.name, node.value, root)
+    //   } else if (node.static) {
+    //     if (node.value) {
+    //       result.static[node.key.name] = root.source.slice(node.value.start, node.value.end)
+    //     } else {
+    //       result.static[node.key.name] = null
+    //     }
+    //   }
+    // }
   })
   return result
 }

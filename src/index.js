@@ -1,6 +1,7 @@
 var fs = require('fs')
 var getProps = require('./props')
 var getClass = require('./class')
+var getMemo = require('./memo')
 var saveComponent = require('./save')
 var generateVueComponent = require('./generate')
 var getFunctional = require('./functional')
@@ -107,6 +108,13 @@ module.exports = function transform (src, options) {
       }
       // retrieve functional component
       getFunctional(path, fileContent, result, 'arrow')
+    },
+    VariableDeclaration (path) {
+      if (path.node.declarations[0].init.callee?.name === 'memo'){
+        console.log('--------------------');
+        getMemo(path, fileContent, result)
+      }
+      // if (path.node.declarations)
     }
   })
   // check props validation

@@ -1,6 +1,6 @@
 {
   "name": "slb-rtv",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "engine that transforms React component to Vue component",
   "scripts": {
     "prepublish": "npm run start",

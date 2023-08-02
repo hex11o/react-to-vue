@@ -38,6 +38,12 @@ module.exports = function generateVueComponent (object) {
       content += item + '\n'
     })
 
+    // add common function
+    object.functional.forEach((func) => {
+      // common function
+      content += func + '\n\n'
+    })
+
     // add props
     if (object.propTypes && object.propTypes[component.componentName]) {
       let props = object.propTypes[component.componentName]
@@ -77,7 +83,7 @@ module.exports = function generateVueComponent (object) {
     // add life cycles
     if (component.lifeCycles && Object.keys(component.lifeCycles).length) {
       for (let key in component.lifeCycles) {
-        content += `${key} () {${component.lifeCycles[key]}}\n\n`
+        content += `${key}(() => {${component.lifeCycles[key]}})\n\n`
       }
     }
 
