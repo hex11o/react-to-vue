@@ -158,6 +158,18 @@ function parseMethods (path, fileContent, result) {
 }
 
 function parseRenderMethods (path, fileContent, result) {
+  // path.traverse({
+  //   ReturnStatement (jsxPath) {
+  //     if (jsxPath.node.argument?.type === 'JSXElement') {
+  //       path.traverse({
+  //         JSXElement(elementPath) {
+  //           elementPath.replaceWith(babelTypes.stringLiteral('// ' + generate(jsxPath.node.argument).code + ' '))
+  //         }
+  //       })
+  //       // console.log(jsxPath.node);
+  //     }
+  //   }
+  // })
   // replace special statement
   replaceSpecialStatement(path, fileContent)
   // generate method
@@ -191,7 +203,7 @@ function parseRender (path, fileContent, result) {
         JSXAttribute: function JSXAttribute(attrPath) {
           var node = attrPath.node;
 
-          if(node.value.type !== 'StringLiteral') {
+          if(node.value && node.value.type !== 'StringLiteral') {
             let name = node.name.name;
             switch (node.value.expression.type) {
               case 'MemberExpression':
@@ -296,6 +308,23 @@ function parseRender (path, fileContent, result) {
     VariableDeclaration(path) {
       if (path.isVariableDeclaration()) {
         result.declaration.push(fileContent.slice(path.node.start, path.node.end))
+      }
+    },
+    JSXExpressionContainer (jsxPath) {
+      const { type, left, right, operator, innerComments } = jsxPath.node.expression
+      if (type === 'LogicalExpression' && left.type === 'Identifier' && right.type === 'JSXElement' && operator==='&&') {
+        // 条件渲染表达式
+        // exp: {a && <div>123</div>}
+        const leftName = left.name
+        const attribute = `v-if="${leftName}"`
+        const element = jsxPath.node.expression.right
+        element.openingElement.attributes.unshift(babelTypes.jsxAttribute(babelTypes.jsxIdentifier(attribute)))
+        // jsxPath.node.expression.right.openingElement.
+        jsxPath.replaceWith(jsxPath.node.expression.right)
+      } else if (type === 'JSXEmptyExpression') {
+        // 注释
+        // exp: {/** 123 */}
+        jsxPath.replaceWith(babelTypes.jsxText('<!-- ' +innerComments[0].value.trim() + ' -->'))
       }
     }
   })

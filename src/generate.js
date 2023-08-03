@@ -29,7 +29,7 @@ module.exports = function generateVueComponent (object) {
     if (component.template) {
       content += '<template>\n' + component.template + '\n</template>\n\n'
     }
-    console.log(component);
+
     // add script start
     content += `<script setup name="${component.componentName}" lang="ts">\n`
 

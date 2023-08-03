@@ -110,7 +110,7 @@ module.exports = function transform (src, options) {
       getFunctional(path, fileContent, result, 'arrow')
     },
     VariableDeclaration (path) {
-      if (path.node.declarations[0].init.callee?.name === 'memo'){
+      if (path.node.declarations[0].init?.callee?.name === 'memo'){
         console.log('--------------------');
         getMemo(path, fileContent, result)
       }
