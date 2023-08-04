@@ -42,7 +42,7 @@ Options:
 - [√] class: 模块拆分，className处理，click事件处理
 - [√] class render条件渲染
 - [-] memo
-- [] function render处理
+- [] function render也按class render方法转换
 - [] class render循环渲染
 - [] class render组件替换
 

@@ -331,6 +331,7 @@ function parseRender (path, fileContent, result) {
 
   path.traverse({
     ReturnStatement(blockPath) {
+      if (result.template) return
       result.template = generate(blockPath.node.argument).code
 
       blockPath.traverse({
