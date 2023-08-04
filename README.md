@@ -1,8 +1,11 @@
 # react-to-vue
 transform a basic react component to vue component
 
-## Install
-npm install slb-rtv -g
+## 本地调试
+1. 安装依赖：`npm install`or `yarn`
+2. 添加: `npm link`
+3. 启动开发环境: `npm run dev`or`yarn dev`
+4. 执行命令: `rtv file.js -o file.vue`
 
 ## Usage
 
@@ -33,16 +36,13 @@ Options:
 `class A extends React.Component {}`
 - memo: 正在兼容处理拆分
 
-## 代码解释说明
-
-## 使用说明
-
 ## 项目进度
 - [√] import
 - [√] declaration
 - [√] class: 模块拆分，className处理，click事件处理
+- [√] class render条件渲染
 - [-] memo
-- [] class render条件渲染
+- [] function render处理
 - [] class render循环渲染
 - [] class render组件替换
 
