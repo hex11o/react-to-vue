@@ -86,7 +86,7 @@ function replaceSpecialStatement (path, fileContent) {
 }
 
 // parse constructor
-function parseConstructor (path, fileContent, result, root) {
+function parseConstructor (path, fileContent, result) {
   let paramName = path.get('params.0') ? path.get('params.0').node.name : null
   path.traverse({
     ExpressionStatement (expressPath) {
@@ -105,8 +105,8 @@ function parseConstructor (path, fileContent, result, root) {
               let property = properties[i]
               let value = fileContent.slice(property.value.start, property.value.end)
               // validate if it exists in the props
-              if (root.propTypes && root.propTypes[result.componentName] && root.propTypes[result.componentName][property.key.name]) {
-                root.caveats.push(`The data property "${property.key.name}" is already declared as a prop, please redesign this component`)
+              if (result.propTypes && result.propTypes[result.componentName] && result.propTypes[result.componentName][property.key.name]) {
+                result.caveats.push(`The data property "${property.key.name}" is already declared as a prop, please redesign this component`)
               } else {
                 result.data[property.key.name] = value.replace(/this\.props/g, 'this').replace(/props/g, 'this')
               }
@@ -132,6 +132,7 @@ function parseConstructor (path, fileContent, result, root) {
     result.lifeCycles['onBeforeMount'] = code
   }
 }
+
 // parse life cycle methods
 function parseLifeCycle (path, method, fileContent, result) {
   // replace special statement
@@ -158,19 +159,6 @@ function parseMethods (path, fileContent, result) {
 }
 
 function parseRenderMethods (path, fileContent, result) {
-  // path.traverse({
-  //   ReturnStatement (jsxPath) {
-  //     if (jsxPath.node.argument?.type === 'JSXElement') {
-  //       path.traverse({
-  //         JSXElement(elementPath) {
-  //           elementPath.replaceWith(babelTypes.stringLiteral('// ' + generate(jsxPath.node.argument).code + ' '))
-  //         }
-  //       })
-  //       // console.log(jsxPath.node);
-  //     }
-  //   }
-  // })
-  // replace special statement
   replaceSpecialStatement(path, fileContent)
   // generate method
   let code = getFunctionBody(path.node.body);
@@ -187,205 +175,51 @@ function parseRenderMethods (path, fileContent, result) {
 // parse render
 function parseRender (path, fileContent, result) {
   // retrieve special properties
-  path.traverse({
-    JSXElement (jsxPath) {
-      let element = jsxPath.node.openingElement
-      // find sub component
-      if (element.name && element.name.name && /^[A-Z]/.test(element.name.name)) {
-        result.components.push(element.name.name)
-        let name = transformComponentName(element.name.name)
-        element.name.name = name
-        if (jsxPath.node.closingElement) {
-          jsxPath.node.closingElement.name.name = name
-        }
-      }
-      jsxPath.traverse({
-        JSXAttribute: function JSXAttribute(attrPath) {
-          var node = attrPath.node;
-
-          if(node.value && node.value.type !== 'StringLiteral') {
-            let name = node.name.name;
-            switch (node.value.expression.type) {
-              case 'MemberExpression':
-                if (name === 'className') {
-                  node.name.name = 'class';
-                  var classValue = [];
-                  // 获取class内部值
-                  attrPath.traverse({
-                    MemberExpression (expressionPath) {
-                      classValue.push(expressionPath.node.property.value);
-                    }
-                  });
-                  node.value = babelTypes.stringLiteral(classValue.join(' '));
-                } else {
-                  node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
-                  node.name.name = `:${name}`;
-                }
-                break;
-              case 'ArrowFunctionExpression':
-                node.value = babelTypes.stringLiteral(generate(node.value.expression.body).code);
-                node.name.name = `@${name}`;
-                break;
-              case 'CallExpression':
-                if (name === 'className') {
-                  node.name.name = 'class';
-                  var classValue = [];
-                  // 获取class内部值
-                  attrPath.traverse({
-                    MemberExpression (expressionPath) {
-                      classValue.push(expressionPath.node.property.value);
-                    }
-                  });
-                  node.value = babelTypes.stringLiteral(classValue.join(' '));
-                } else {
-                  node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
-                  node.name.name = `:${name}`;
-                }
-                break;
-              case 'LogicalExpression':
-              case 'TemplateLiteral':
-              case 'Identifier':
-                node.value = babelTypes.stringLiteral(generate(node.value.expression).code);
-                node.name.name = `:${name}`;
-                break;
-              case 'ObjectExpression':
-                const style = node.value.expression.properties.map((property) => {
-                  return `${property.key.name}: ${property.value.value}`
-                }).join(';')
-                node.value = babelTypes.stringLiteral(style);
-                break;
-              default:
-                break;
-            }
-          }
-          // if (node.name.name === 'ref' && node.value.type !== 'StringLiteral') {
-          //   var value = node.value;
-          //   var _code;
-          //   // automatically increase the value
-          //   var refValue = 'vueref' + refIndex++;
-          //   var bodys = null;
-          //   // only has one statement
-          //   if ((bodys = attrPath.get('value.expression.body'), bodys) && bodys.isAssignmentExpression()) {
-          //     _code = fileContent.slice(bodys.node.left.start, bodys.node.left.end);
-          //     _code = "".concat(_code, " = this.$refs.").concat(refValue);
-          //   } else if (bodys.node && (bodys = attrPath.get('value.expression.body.body'), bodys) && bodys.length === 1) {
-          //     // only has one statement
-          //     // only has one statement in the blockstatement
-          //     bodys = bodys[0].get('expression.left');
-          //     _code = fileContent.slice(bodys.node.start, bodys.node.end);
-          //     _code = "".concat(_code, " = this.$refs.").concat(refValue);
-          //   } else {
-          //     _code = fileContent.slice(value.expression.start, value.expression.end);
-          //     _code = "(".concat(_code, ")(this.$refs.").concat(refValue, ")");
-          //   }
-          //   _code += ';';
-          //   var jsxContainer = attrPath.get('value');
-          //   if (jsxContainer) {
-          //     jsxContainer.replaceWith(babelTypes.stringLiteral(refValue));
-          //   }
-          //   // add the ref callback code into specified lifecycle
-          //   result.lifeCycles.mounted = _code + (result.lifeCycles.mounted ? result.lifeCycles.mounted : '');
-          //   result.lifeCycles.updated = _code + (result.lifeCycles.updated ? result.lifeCycles.updated : '');
-          //   // result.lifeCycles.destroyed = unmountCode + (result.lifeCycles.destroyed ? result.lifeCycles.destroyed : '')
-          // }
-        }
-      });
-    },
-    MemberExpression (memPath) {
-      // change `this.state` and `this.props` to `this`
-      let node = memPath.node
-      // replace this.props.children with 'this.$slots.default'
-      if (node.property.name === 'children' && node.object.object && node.object.object.type === 'ThisExpression') {
-        node.property.name = 'default'
-        node.object.property.name = '$slots'
-      }
-      if (['state', 'props'].includes(node.property.name)) {
-        if (node.object.type === 'ThisExpression') {
-          memPath.replaceWith(babelTypes.thisExpression())
-        }
-      }
-    },
-    VariableDeclaration(path) {
-      if (path.isVariableDeclaration()) {
-        result.declaration.push(fileContent.slice(path.node.start, path.node.end))
-      }
-    },
-    JSXExpressionContainer (jsxPath) {
-      const { type, left, right, operator, innerComments } = jsxPath.node.expression
-      if (type === 'LogicalExpression' && left.type === 'Identifier' && right.type === 'JSXElement' && operator==='&&') {
-        // 条件渲染表达式
-        // exp: {a && <div>123</div>}
-        const leftName = left.name
-        const attribute = `v-if="${leftName}"`
-        const element = jsxPath.node.expression.right
-        element.openingElement.attributes.unshift(babelTypes.jsxAttribute(babelTypes.jsxIdentifier(attribute)))
-        // jsxPath.node.expression.right.openingElement.
-        jsxPath.replaceWith(jsxPath.node.expression.right)
-      } else if (type === 'JSXEmptyExpression') {
-        // 注释
-        // exp: {/** 123 */}
-        jsxPath.replaceWith(babelTypes.jsxText('<!-- ' +innerComments[0].value.trim() + ' -->'))
-      }
+  let nodeLists = path.node.body.body
+  for (let i = 0; i < nodeLists.length; i++) {
+    let node = nodeLists[i]
+    let cPath = path.get(`body.body.${i}`)
+    const nodeType = node.type
+    switch(nodeType) {
+      case 'VariableDeclaration':
+        result.declaration.push(fileContent.slice(cPath.node.start, cPath.node.end))
+        break;
+      case 'ReturnStatement':
+        result.template = generate(cPath.node.argument).code
+        break;
     }
-  })
-
-  path.traverse({
-    ReturnStatement(blockPath) {
-      if (result.template) return
-      result.template = generate(blockPath.node.argument).code
-
-      blockPath.traverse({
-        JSXExpressionContainer (jsxPath) {
-          // jsxPath.traverse({
-          //   JSXEmptyExpression(jsxEmptyPath) {
-          //     jsxPath.replaceWith(babelTypes.JSXText(generate(jsxEmptyPath.node).code))
-          //   }
-          // })
-        }
-      })
-    }
-  })
-
-  let code = getFunctionBody(path.node.body);
-  result.render = `${code}}`
+  }
 }
 
 /*
 * replace static variables and methods
 */
-function replaceStatic (path, root) {
+function replaceStatic (path, result) {
   path.traverse({
     MemberExpression (memPath) {
       let propertyName = memPath.node.property.name
-      let memExpression = root.source.slice(memPath.node.object.start, memPath.node.object.end)
-      if (root.class.static[propertyName] && ['this.constructor', root.class.componentName].includes(memExpression)) {
+      let memExpression = result.source.slice(memPath.node.object.start, memPath.node.object.end)
+      if (result.class.static[propertyName] && ['this.constructor', result.class.componentName].includes(memExpression)) {
         memPath.replaceWithSourceString(`static_${propertyName}`)
       }
     }
   })
 }
 
-module.exports = function getClass (path, fileContent, root) {
-  Object.assign(root.class, {
-    static: {},
-    data: {},
-    methods: [],
-    lifeCycles: {},
-    components: [],
-    template: null,
-    declaration: [],
-    componentName: path.node.id.name
-  })
-  let result = root.class
-  
-  path.traverse({
-    ClassMethod (path) {
+module.exports = function getClass (classPath, fileContent, result) {
+  let nodeLists = classPath.node.body.body
+  result.componentName = classPath.node.id.name
+  for (let i = 0; i < nodeLists.length; i++) {
+    let node = nodeLists[i]
+    let path = classPath.get(`body.body.${i}`)
+    const nodeType = node.type
+    if (nodeType === 'ClassMethod') {
       // replace statics
-      replaceStatic(path, root)
+      // replaceStatic(path, result)
       // deal with different method
-      switch(path.node.key.name) {
+      switch(node.key.name) {
         case 'constructor':
-          parseConstructor(path, fileContent, result, root);
+          parseConstructor(path, fileContent, result);
           break;
         case 'componentWillMount':
           parseLifeCycle(path, 'onBeforeMount', fileContent, result);
@@ -415,23 +249,9 @@ module.exports = function getClass (path, fileContent, root) {
           parseMethods(path, fileContent, result);
           break;
       }
-    },
-    ArrowFunctionExpression(path) {
-      if (!path.parent.key) return
-      parseRenderMethods(path, fileContent, result)
-    },
-    ClassProperty (path) {
-      let node = path.node
-      if (node.key && ['defaultProps', 'propTypes'].includes(node.key.name)) {
-        getProps(result.componentName, node.key.name, node.value, root)
-      } else if (node.static) {
-        if (node.value) {
-          result.static[node.key.name] = root.source.slice(node.value.start, node.value.end)
-        } else {
-          result.static[node.key.name] = null
-        }
-      }
+    } else if (nodeType === 'ClassProperty') {
+      const functionNode = path.get('value')
+      parseRenderMethods(functionNode, fileContent, result)
     }
-  })
-  return result
+  }
 }

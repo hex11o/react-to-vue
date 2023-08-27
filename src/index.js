@@ -4,6 +4,7 @@ var getClass = require('./class')
 var getMemo = require('./memo')
 var saveComponent = require('./save')
 var generateVueComponent = require('./generate')
+var transformElement = require('./template')
 var getFunctional = require('./functional')
 var babelTraverse = require('@babel/traverse').default
 var babelParser = require('@babel/parser')
@@ -18,6 +19,28 @@ module.exports = function transform (src, options) {
   fileContent = fileContent.toString()
   // hard code
   fileContent = removeBadCode(fileContent)
+
+  // traverse module
+let result = {
+  // vue template
+  "template": "", 
+  // vue script
+  "componentName": "", // 组件名
+  "components": [], // 未找到名称的组件
+  "import": [],
+  "declaration": [],
+  "functional": [],
+  "data": {},
+  "lifeCycles": {},
+  "methods": [],
+
+  "propTypes": {},
+  "defaultProps": {},
+  // there exists incompatibility
+  "caveats": [],
+  "source": fileContent
+}
+
   // parse module
   let ast = babelParser.parse(fileContent, {
     sourceType:'module',
@@ -34,20 +57,12 @@ module.exports = function transform (src, options) {
           delete item.trailingComments
         }
       })
+    },
+    JSXElement (path) {
+      transformElement(path, fileContent, result)
     }
   })
-  // traverse module
-  let result = {
-    "import": [],
-    "declaration": [],
-    "class": {},
-    "functional": [],
-    "propTypes": {},
-    "defaultProps": {},
-    // there exists incompatibility
-    "caveats": [],
-    "source": fileContent
-  }
+
   babelTraverse(ast, {
     Program (path) {
       let nodeLists = path.node.body
@@ -68,59 +83,37 @@ module.exports = function transform (src, options) {
             console.error('One file should have only one class declaration!')
             process.exit()
           }
+          getClass(cPath, fileContent, result)
         } else if (cPath.isExportDefaultDeclaration()) {
           result.exportName = node.declaration.name ? node.declaration.name : 'index' // 导出的组件名
-        } else if (cPath.isVariableDeclaration() && !isVariableFunc(cPath)) {
-          // it's just simple variable declaration, e.g. `let a = 1`
-          result.declaration.push(fileContent.slice(node.start, node.end))
+        } else if (cPath.isImportDeclaration()) {
+          if (!["react", "prop-types", "react-dom", 'dva/router', 'dva', 'antd', 'classnames', './index.less', 'uuid'].includes(node.source.value)) {
+            result.import.push(fileContent.slice(node.start, node.end))
+          }
+        } else if (cPath.isVariableDeclaration()) {
+          const { init, id } = node.declarations[0]
+          if (init.type === 'CallExpression' && init.callee.name === 'memo') {
+            result.componentName = id.name
+            const memoContent = cPath.get(`declarations.0.init.arguments.0`)
+            getMemo(memoContent, fileContent, result)
+          } else {
+            result.declaration.push(fileContent.slice(node.start, node.end))
+          }
+        } else if (cPath.isFunctionDeclaration()) {
+          getFunctional(cPath, fileContent, result)
+        } else if (cPath.isArrowFunctionExpression()) {
+          getFunctional(cPath, fileContent, result, 'arrow')
         }
       }
-    },
-    // import 文件
-    ImportDeclaration (path) {
-      let node = path.node
-      // skip react and prop-types modules
-      if (["react", "prop-types", "react-dom"].includes(node.source.value)) {
-        return
-      }
-      result.import.push(fileContent.slice(node.start, node.end))
-    },
-    ClassDeclaration (path) {
-      if (path.parentPath.type !== 'Program' && path.parentPath.type !== 'ExportDefaultDeclaration') {
-        reportIssue('This component seems like HOC or something else, we may not support it')
-      }
-      if (path.node.decorators) {
-        result.caveats.push('react-to-vue does not support decorator for now')
-      }
-      getClass(path, fileContent, result)
-    },
-    FunctionDeclaration (path) {
-      if (path.parentPath.type !== 'Program') {
-        return
-      }
-      // retrieve functional component
-      getFunctional(path, fileContent, result)
-    },
-    ArrowFunctionExpression (path) {
-      let variablePath = path.findParent((p) => p.isVariableDeclaration())
-      if (!variablePath || variablePath.parentPath.type !== 'Program' || path.getPathLocation().split('.').length > 4) {
-        return
-      }
-      // retrieve functional component
-      getFunctional(path, fileContent, result, 'arrow')
-    },
-    VariableDeclaration (path) {
-      if (path.node.declarations[0].init?.callee?.name === 'memo'){
-        console.log('--------------------');
-        getMemo(path, fileContent, result)
-      }
-      // if (path.node.declarations)
     }
   })
+
   // check props validation
-  if (!Object.keys(result.propTypes).length && /props/.test(fileContent)) {
-    result.caveats.push(`There is no props validation, please check it manually`)
-  }
+  // if (!Object.keys(result.propTypes).length && /props/.test(fileContent)) {
+  //   result.caveats.push(`There is no props validation, please check it manually`)
+  // }
+  delete result.source
+  // console.log(result)
   // generate vue component according to object
   let output = generateVueComponent(result)
   
@@ -128,8 +121,8 @@ module.exports = function transform (src, options) {
   saveComponent(options.output, output)
   
   // output caveats
-  if (result.caveats.length) {
-    console.log(chalk.red("Caveats:"));
-    console.log(chalk.red(result.caveats.join('\n')))
-  }
+  // if (result.caveats.length) {
+  //   console.log(chalk.red("Caveats:"));
+  //   console.log(chalk.red(result.caveats.join('\n')))
+  // }
 }

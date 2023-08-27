@@ -8,7 +8,7 @@ module.exports = function (dst, output) {
     }
     fs.writeFileSync(dst, output)
   } else {
-    console.log('-------------------')
-    // console.log(output)
+    console.log('---------output----------')
+    console.log(output)
   }
 }
