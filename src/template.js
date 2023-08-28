@@ -35,7 +35,7 @@ function JSXAttribute(attrPath) {
   }
 
   nodeName = node.name.name // get new nodeName
-  
+
   if(node.value.type !== 'StringLiteral') {
     switch (node.value.expression.type) {
       case 'JSXExpressionContainer':
@@ -53,7 +53,7 @@ function JSXAttribute(attrPath) {
       case 'MemberExpression':
         if (nodeName === 'class') {
           var classValue = [];
-          classValue.push(node.property?.value);
+          classValue.push(node.value.expression.property?.value);
           node.value = babelTypes.stringLiteral(classValue.join(' '));
         } else if (node.value.expression.object?.type === 'ThisExpression') {
             node.value = babelTypes.stringLiteral(generate(node.value.expression.property).code);
@@ -87,6 +87,7 @@ function JSXAttribute(attrPath) {
       case 'LogicalExpression':
       case 'TemplateLiteral':
       case 'BooleanLiteral':
+      case 'NumericLiteral':
       case 'Identifier':
       case 'BinaryExpression':
         node.value = babelTypes.stringLiteral(generate(node.value.expression).code);

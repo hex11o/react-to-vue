@@ -164,11 +164,12 @@ function parseRenderMethods (path, fileContent, result) {
   let code = getFunctionBody(path.node.body);
   let method = path.parent.key.name
   let params = path.node.params
+  let async = path.node.async
   let paramsArr = []
   for (let i = 0; i < params.length; i++) {
     paramsArr.push(fileContent.slice(params[i].start, params[i].end))
   }
-  code = `function ${method} (${paramsArr.join(', ')}) {${code}}`
+  code = `${ async ? 'async ' : ''}function ${method} (${paramsArr.join(', ')}) {${code}}`
   result.methods.push(code)
 }
 
@@ -250,8 +251,20 @@ module.exports = function getClass (classPath, fileContent, result) {
           break;
       }
     } else if (nodeType === 'ClassProperty') {
-      const functionNode = path.get('value')
-      parseRenderMethods(functionNode, fileContent, result)
+      let node = path.node
+      if (node.key && ['defaultProps', 'propTypes'].includes(node.key.name)) {
+        getProps(result.componentName, node.key.name, node.value, root)
+      } else if (node.static) {
+        if (node.value) {
+          result.static[node.key.name] = root.source.slice(node.value.start, node.value.end)
+        } else {
+          result.static[node.key.name] = null
+        }
+      } else if (node.value.type === 'ArrowFunctionExpression') {
+        // retrieve functional component
+        const functionNode = path.get('value')
+        parseRenderMethods(functionNode, fileContent, result)
+      }
     }
   }
 }
